@@ -2,17 +2,17 @@
  * HYBRID FIT - Full-Stack Server
  * Zero external dependencies (uses native Node.js http, https/fetch, fs, path, os)
  * Production ready for Render.com, Railway, VPS, or Local deployment.
+ * Supports:
+ *  - 2-way Strava Sync (Fetch Runs/Rides + Upload Gym Weight Training Workouts to Strava)
  */
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-// Render sets process.env.PORT dynamically (defaults to 3000 locally)
 const PORT = process.env.PORT || 3000;
 const BASE_DIR = __dirname;
 
-// Strava API Configuration (from environment variables or defaults)
 let STRAVA_CONFIG = {
   clientId: process.env.STRAVA_CLIENT_ID || '',
   clientSecret: process.env.STRAVA_CLIENT_SECRET || '',
@@ -70,7 +70,7 @@ const server = http.createServer(async (req, res) => {
   const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = urlObj.pathname;
 
-  // Handle CORS preflight
+  // CORS preflight
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
       'Access-Control-Allow-Origin': '*',
@@ -81,7 +81,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // --- API ROUTE: Get Server & Strava Config Status ---
+  // --- API ROUTE: Config Check ---
   if (pathname === '/api/config' && req.method === 'GET') {
     return sendJson(res, 200, {
       configured: Boolean(STRAVA_CONFIG.clientId && STRAVA_CONFIG.clientSecret),
@@ -91,7 +91,7 @@ const server = http.createServer(async (req, res) => {
     });
   }
 
-  // --- API ROUTE: Update Strava Config (Allows setting keys via Web UI) ---
+  // --- API ROUTE: Update Config via Web UI ---
   if (pathname === '/api/config' && req.method === 'POST') {
     try {
       const body = await parseJsonBody(req);
@@ -109,7 +109,7 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  // --- API ROUTE: Get Strava OAuth Authorize URL ---
+  // --- API ROUTE: Strava OAuth URL (with activity:write permission!) ---
   if (pathname === '/api/strava/auth-url' && req.method === 'GET') {
     const host = req.headers['x-forwarded-host'] || req.headers.host;
     const protocol = req.headers['x-forwarded-proto'] || (req.connection.encrypted ? 'https' : 'http');
@@ -122,16 +122,17 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
+    // Requests activity:write so we can post gym workouts to user's Strava profile!
     const authUrl = `https://www.strava.com/oauth/authorize?client_id=${encodeURIComponent(STRAVA_CONFIG.clientId)}` +
       `&response_type=code` +
       `&redirect_uri=${encodeURIComponent(redirectUri)}` +
       `&approval_prompt=auto` +
-      `&scope=read,activity:read_all`;
+      `&scope=read,activity:read_all,activity:write`;
 
     return sendJson(res, 200, { authUrl, redirectUri });
   }
 
-  // --- API ROUTE: Strava OAuth Callback (Handles code exchange) ---
+  // --- API ROUTE: Strava OAuth Callback ---
   if (pathname === '/api/strava/callback' && req.method === 'GET') {
     const code = urlObj.searchParams.get('code');
     const error = urlObj.searchParams.get('error');
@@ -143,7 +144,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     try {
-      // Exchange authorization code for access token using native fetch
       const tokenResponse = await fetch('https://www.strava.com/api/v3/oauth/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -164,7 +164,6 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      // Safe payload to pass back to client
       const authPayload = encodeURIComponent(JSON.stringify({
         accessToken: tokenData.access_token,
         refreshToken: tokenData.refresh_token,
@@ -178,7 +177,6 @@ const server = http.createServer(async (req, res) => {
         }
       }));
 
-      // Redirect back to front-end with token data in URL hash (avoids logging tokens in server logs)
       res.writeHead(302, { Location: `/#strava_auth=${authPayload}` });
       res.end();
       return;
@@ -226,7 +224,79 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  // --- API ROUTE: Fetch Recent Strava Activities & Normalize for Cardio Tracker ---
+  // --- API ROUTE: Upload Gym Workout to Strava as "WeightTraining" Activity! ---
+  if (pathname === '/api/strava/upload-workout' && req.method === 'POST') {
+    try {
+      const body = await parseJsonBody(req);
+      const accessToken = body.accessToken;
+      const workout = body.workout;
+
+      if (!accessToken) {
+        return sendJson(res, 401, { error: 'Missing Strava access token' });
+      }
+      if (!workout || !workout.title) {
+        return sendJson(res, 400, { error: 'Missing workout details' });
+      }
+
+      // Format description with exercises and volume
+      let description = `🏋️ HYBRID FIT Workout\n`;
+      if (workout.totalVolumeKg) {
+        description += `Total Volume: ${workout.totalVolumeKg} kg\n`;
+      }
+      description += `Completed Sets: ${workout.completedSets || 0}\n\nExercises:\n`;
+      
+      if (workout.exercisesSummary && Array.isArray(workout.exercisesSummary)) {
+        workout.exercisesSummary.forEach(ex => {
+          if (ex.completedSets > 0) {
+            description += `• ${ex.name} (${ex.completedSets} sets)\n`;
+          }
+        });
+      }
+
+      description += `\nTracked with HYBRID FIT App`;
+
+      // Strava POST /api/v3/activities
+      const nowIso = new Date().toISOString();
+      const stravaPayload = {
+        name: `${workout.title} • HYBRID FIT`,
+        type: 'WeightTraining',
+        sport_type: 'WeightTraining',
+        start_date_local: nowIso,
+        elapsed_time: workout.elapsedTimeSeconds || 3000, // approx 50 mins or actual
+        description: description
+      };
+
+      const uploadRes = await fetch('https://www.strava.com/api/v3/activities', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(stravaPayload)
+      });
+
+      const stravaResult = await uploadRes.json();
+      if (!uploadRes.ok) {
+        console.error('Strava upload failed:', stravaResult);
+        return sendJson(res, uploadRes.status, {
+          error: stravaResult.message || 'Failed to post workout to Strava',
+          details: stravaResult
+        });
+      }
+
+      return sendJson(res, 200, {
+        success: true,
+        message: 'Workout successfully posted to Strava!',
+        activityId: stravaResult.id,
+        stravaUrl: `https://www.strava.com/activities/${stravaResult.id}`
+      });
+    } catch (err) {
+      console.error('Error posting workout to Strava:', err);
+      return sendJson(res, 500, { error: err.message });
+    }
+  }
+
+  // --- API ROUTE: Fetch Strava Activities (Runs & Rides summary) ---
   if (pathname === '/api/strava/activities' && req.method === 'POST') {
     try {
       const body = await parseJsonBody(req);
@@ -236,7 +306,6 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 401, { error: 'Missing Strava access token' });
       }
 
-      // Fetch last 15 activities
       const stravaRes = await fetch('https://www.strava.com/api/v3/athlete/activities?per_page=15', {
         headers: {
           'Authorization': `Bearer ${accessToken}`
@@ -248,7 +317,6 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, stravaRes.status, { error: activities.message || 'Failed to fetch activities' });
       }
 
-      // Filter and normalize runs & cycling rides
       const normalized = activities
         .filter(act => ['Run', 'Ride', 'VirtualRide', 'Walk'].includes(act.sport_type || act.type))
         .map(act => {
@@ -260,7 +328,6 @@ const server = http.createServer(async (req, res) => {
           const movingMinutes = (act.moving_time / 60);
           const movingHours = (act.moving_time / 3600);
 
-          // Calculate pace (min/km for run, km/h for ride)
           let pace = '--';
           let speed = '--';
 
@@ -275,7 +342,6 @@ const server = http.createServer(async (req, res) => {
             speed = (distKm / movingHours).toFixed(1);
           }
 
-          // Estimate calories if Strava doesn't supply them
           const calories = act.calories || Math.round(distKm * 70 * (isRun ? 1.036 : 0.48));
 
           return {
@@ -291,7 +357,7 @@ const server = http.createServer(async (req, res) => {
             speed: speed,
             elevationGain: act.total_elevation_gain || 0,
             calories: calories,
-            notes: `Synced from Strava: ${act.name} (Elev: ${Math.round(act.total_elevation_gain || 0)}m)`
+            notes: `Recorded on Strava: ${act.name} (Elev: ${Math.round(act.total_elevation_gain || 0)}m)`
           };
         });
 
@@ -340,6 +406,6 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`💻 Local:             http://localhost:${PORT}`);
   console.log(`📱 Local Wi-Fi:       http://${localIp}:${PORT}`);
   console.log(`🚀 Ready for Render:  Set PORT or let Render assign it`);
-  console.log(`🏃 Strava Integration: Fully supported (/api/strava/*)`);
+  console.log(`🏋️ Strava Upload:     Post Gym Workouts directly to Strava`);
   console.log('==================================================');
 });

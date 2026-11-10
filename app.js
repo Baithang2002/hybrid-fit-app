@@ -1,7 +1,8 @@
 /**
  * Hybrid Strength & Cardio Tracker App
  * Built for 6-Day PPL + 5-10km Running/Cycling Hybrid Athlete Split
- * Includes Full Strava v3 API Sync & Cloud Deployment Support
+ * Features:
+ *  - 2-Way Strava Sync: Push Gym Workouts to Strava + Pull 5-10km GPS Runs/Rides
  */
 
 // --- Default 6-Day Routine Data ---
@@ -594,7 +595,7 @@ class SoundManager {
     try {
       this.init();
       if (!this.audioCtx) return;
-      const notes = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
+      const notes = [523.25, 659.25, 783.99, 1046.5];
       notes.forEach((freq, idx) => {
         setTimeout(() => {
           this.playBeep(freq, 0.35, "triangle");
@@ -616,7 +617,6 @@ class WorkoutApp {
     this.STRAVA_AUTH_KEY = "HYBRID_STRAVA_AUTH_V1";
     this.soundManager = new SoundManager();
     
-    // Load or initialize state
     this.state = this.loadState();
     this.stravaAuth = this.loadStravaAuth();
     
@@ -628,9 +628,8 @@ class WorkoutApp {
       isRunning: false
     };
 
-    // Active views
     this.activeTab = "workout";
-    this.selectedDayId = "day-2"; // default Day 2 Push A + Cardio
+    this.selectedDayId = "day-2";
     
     this.initDOM();
     this.bindEvents();
@@ -667,7 +666,7 @@ class WorkoutApp {
           pace: "6:00",
           speed: "10.0",
           calories: 210,
-          notes: "Today's shakeout 3km run"
+          notes: "Recorded in Strava App: Today's 3km Run"
         }
       ],
       userProfile: {
@@ -707,7 +706,6 @@ class WorkoutApp {
   }
 
   checkUrlForStravaCallback() {
-    // Check URL hash for OAuth payload
     const hash = window.location.hash;
     if (hash && hash.includes("strava_auth=")) {
       try {
@@ -716,13 +714,12 @@ class WorkoutApp {
         this.saveStravaAuth(authData);
         window.history.replaceState(null, "", window.location.pathname);
         this.soundManager.playCompleteChime();
-        alert(`🎉 Strava Connected Successfully!\nWelcome ${authData.athlete?.firstname || 'Athlete'}!`);
+        alert(`🎉 Strava Connected!\n\nWelcome ${authData.athlete?.firstname || 'Athlete'}!\nAb aapke gym workouts direct Strava par 'Weight Training' ban kar upload ho sakte hain!`);
       } catch (err) {
         console.error("Failed to parse Strava auth payload:", err);
       }
     }
 
-    // Check search params for error
     const params = new URLSearchParams(window.location.search);
     if (params.get("strava_error")) {
       alert("Strava Connection Error: " + params.get("strava_error"));
@@ -731,7 +728,6 @@ class WorkoutApp {
   }
 
   initDOM() {
-    // Cache major containers
     this.dayNavContainer = document.getElementById("dayNavContainer");
     this.dayHeaderContainer = document.getElementById("dayHeaderContainer");
     this.exercisesContainer = document.getElementById("exercisesContainer");
@@ -739,14 +735,12 @@ class WorkoutApp {
     this.workoutHistoryContainer = document.getElementById("workoutHistoryContainer");
     this.statsCardsContainer = document.getElementById("statsCardsContainer");
 
-    // Timer elements
     this.timerTimeDisplay = document.getElementById("timerTimeDisplay");
     this.timerStatusBadge = document.getElementById("timerStatusBadge");
     this.timerProgressRing = document.getElementById("timerProgressRing");
     this.timerStartBtn = document.getElementById("timerStartBtn");
     this.timerResetBtn = document.getElementById("timerResetBtn");
 
-    // Strava elements
     this.stravaStatusBadge = document.getElementById("stravaStatusBadge");
     this.stravaDisconnectedView = document.getElementById("stravaDisconnectedView");
     this.stravaConnectedView = document.getElementById("stravaConnectedView");
@@ -761,14 +755,12 @@ class WorkoutApp {
     this.stravaConfigForm = document.getElementById("stravaConfigForm");
     this.callbackDomainHint = document.getElementById("callbackDomainHint");
 
-    // Set callback domain hint in modal
     if (this.callbackDomainHint) {
       this.callbackDomainHint.textContent = window.location.host;
     }
   }
 
   bindEvents() {
-    // Navigation Tabs
     document.querySelectorAll("[data-tab-target]").forEach(btn => {
       btn.addEventListener("click", () => {
         const target = btn.getAttribute("data-tab-target");
@@ -776,7 +768,6 @@ class WorkoutApp {
       });
     });
 
-    // Cardio form submit
     const cardioForm = document.getElementById("cardioLogForm");
     if (cardioForm) {
       cardioForm.addEventListener("submit", (e) => {
@@ -785,7 +776,6 @@ class WorkoutApp {
       });
     }
 
-    // Cardio Live Pace Calculator listeners
     const distanceInput = document.getElementById("cardioDistance");
     const hoursInput = document.getElementById("cardioHours");
     const minsInput = document.getElementById("cardioMinutes");
@@ -801,7 +791,6 @@ class WorkoutApp {
       radio.addEventListener("change", () => this.updateLivePace());
     });
 
-    // Quick distance chips
     document.querySelectorAll(".quick-dist-btn").forEach(chip => {
       chip.addEventListener("click", () => {
         const dist = chip.getAttribute("data-dist");
@@ -812,7 +801,6 @@ class WorkoutApp {
       });
     });
 
-    // Timer Presets
     document.querySelectorAll(".timer-preset-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         const seconds = parseInt(btn.getAttribute("data-seconds"), 10);
@@ -820,7 +808,6 @@ class WorkoutApp {
       });
     });
 
-    // Timer start/pause
     if (this.timerStartBtn) {
       this.timerStartBtn.addEventListener("click", () => {
         this.soundManager.init();
@@ -834,13 +821,11 @@ class WorkoutApp {
       });
     }
 
-    // Finish Workout Button
     const finishBtn = document.getElementById("finishWorkoutBtn");
     if (finishBtn) {
       finishBtn.addEventListener("click", () => this.finishWorkout());
     }
 
-    // Reset Today's Sets Button
     const resetTodayBtn = document.getElementById("resetDayBtn");
     if (resetTodayBtn) {
       resetTodayBtn.addEventListener("click", () => {
@@ -850,13 +835,11 @@ class WorkoutApp {
       });
     }
 
-    // Add Custom Exercise Button
     const addExBtn = document.getElementById("addCustomExerciseBtn");
     if (addExBtn) {
       addExBtn.addEventListener("click", () => this.promptAddExercise());
     }
 
-    // Sound toggle
     const soundToggle = document.getElementById("soundToggle");
     if (soundToggle) {
       soundToggle.addEventListener("change", (e) => {
@@ -864,7 +847,6 @@ class WorkoutApp {
       });
     }
 
-    // Export / Import
     const exportBtn = document.getElementById("exportDataBtn");
     if (exportBtn) {
       exportBtn.addEventListener("click", () => this.exportData());
@@ -875,7 +857,6 @@ class WorkoutApp {
       importInput.addEventListener("change", (e) => this.importData(e));
     }
 
-    // Strava OAuth & Sync Handlers
     if (this.connectStravaBtn) {
       this.connectStravaBtn.addEventListener("click", () => this.initiateStravaAuth());
     }
@@ -943,7 +924,6 @@ class WorkoutApp {
       const data = await res.json();
 
       if (!res.ok) {
-        // Needs client ID & secret configured
         alert(data.error || "Please configure your Strava Client ID and Secret first.");
         this.openStravaModal();
         return;
@@ -957,8 +937,64 @@ class WorkoutApp {
     }
   }
 
+  async ensureValidStravaToken() {
+    if (!this.stravaAuth || !this.stravaAuth.accessToken) return null;
+    if (this.stravaAuth.expiresAt && Date.now() / 1000 > this.stravaAuth.expiresAt - 60) {
+      try {
+        const refreshRes = await fetch("/api/strava/refresh", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken: this.stravaAuth.refreshToken })
+        });
+        const refreshData = await refreshRes.json();
+        if (refreshRes.ok && refreshData.accessToken) {
+          this.stravaAuth.accessToken = refreshData.accessToken;
+          this.stravaAuth.refreshToken = refreshData.refreshToken;
+          this.stravaAuth.expiresAt = refreshData.expiresAt;
+          this.saveStravaAuth(this.stravaAuth);
+          return refreshData.accessToken;
+        }
+      } catch (e) {
+        console.error("Token refresh failed:", e);
+      }
+    }
+    return this.stravaAuth.accessToken;
+  }
+
+  // Upload Gym Workout TO Strava
+  async uploadWorkoutToStrava(workoutLog) {
+    const token = await this.ensureValidStravaToken();
+    if (!token) return;
+
+    try {
+      const res = await fetch("/api/strava/upload-workout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accessToken: token,
+          workout: workoutLog
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        workoutLog.stravaActivityId = data.activityId;
+        workoutLog.stravaUrl = data.stravaUrl;
+        this.saveState();
+        this.renderHistory();
+        alert(`🚀 Workout Posted to your Strava Profile!\n\nView on Strava: ${data.stravaUrl}`);
+      } else {
+        console.warn("Strava upload response:", data);
+      }
+    } catch (err) {
+      console.error("Error uploading workout to Strava:", err);
+    }
+  }
+
+  // Pull Runs & Rides FROM Strava
   async syncStravaActivities() {
-    if (!this.stravaAuth || !this.stravaAuth.accessToken) {
+    const token = await this.ensureValidStravaToken();
+    if (!token) {
       alert("Please connect with Strava first!");
       return;
     }
@@ -972,29 +1008,10 @@ class WorkoutApp {
     `;
 
     try {
-      // Check if token expired and refresh if necessary
-      let currentToken = this.stravaAuth.accessToken;
-      if (this.stravaAuth.expiresAt && Date.now() / 1000 > this.stravaAuth.expiresAt - 60) {
-        const refreshRes = await fetch("/api/strava/refresh", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refreshToken: this.stravaAuth.refreshToken })
-        });
-        const refreshData = await refreshRes.json();
-        if (refreshRes.ok && refreshData.accessToken) {
-          this.stravaAuth.accessToken = refreshData.accessToken;
-          this.stravaAuth.refreshToken = refreshData.refreshToken;
-          this.stravaAuth.expiresAt = refreshData.expiresAt;
-          this.saveStravaAuth(this.stravaAuth);
-          currentToken = refreshData.accessToken;
-        }
-      }
-
-      // Fetch normalized activities
       const res = await fetch("/api/strava/activities", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accessToken: currentToken })
+        body: JSON.stringify({ accessToken: token })
       });
 
       const result = await res.json();
@@ -1003,7 +1020,6 @@ class WorkoutApp {
         return;
       }
 
-      // Merge new activities without duplicating
       let addedCount = 0;
       result.activities.forEach(act => {
         const alreadyExists = this.state.cardioHistory.some(existing => existing.stravaId === act.stravaId);
@@ -1023,9 +1039,9 @@ class WorkoutApp {
           confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
         }
 
-        alert(`✅ Synced ${addedCount} new activity(ies) from Strava!`);
+        alert(`✅ Synced ${addedCount} new GPS run/ride(s) from your Strava app!`);
       } else {
-        alert("✅ All recent Strava activities are already up to date!");
+        alert("✅ All your GPS runs/rides are already synced!");
       }
     } catch (err) {
       alert("Error syncing with Strava: " + err.message);
@@ -1064,7 +1080,7 @@ class WorkoutApp {
       });
       const data = await res.json();
       if (res.ok) {
-        alert("✅ Strava credentials saved! You can now click 'Connect with Strava'.");
+        alert("✅ Strava credentials saved! Now click 'Connect with Strava'.");
         this.closeStravaModal();
       } else {
         alert(data.error || "Failed to update configuration.");
@@ -1176,7 +1192,6 @@ class WorkoutApp {
         <h2 class="text-2xl font-bold text-white tracking-tight">${day.title}</h2>
         <p class="text-zinc-400 text-sm mt-0.5">${day.subtitle}</p>
 
-        <!-- Cardio Connection Alert -->
         <div class="mt-3 p-3 rounded-xl bg-gradient-to-r from-zinc-900 to-zinc-800/80 border border-zinc-700/80 flex items-start gap-2.5">
           <div class="p-1.5 rounded-lg bg-lime-400/10 text-lime-400 mt-0.5">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
@@ -1464,14 +1479,21 @@ class WorkoutApp {
     this.soundManager.playCompleteChime();
 
     if (typeof confetti === "function") {
-      confetti({
-        particleCount: 80,
-        spread: 70,
-        origin: { y: 0.6 }
-      });
+      confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
     }
 
-    alert(`🎉 Workout Logged Successfully!\n\n${day.title}\nTotal Sets Completed: ${completedSets}\nTotal Volume: ${totalVolume} kg`);
+    // Auto-prompt to sync workout to Strava!
+    if (this.stravaAuth && this.stravaAuth.accessToken) {
+      const askStrava = confirm(
+        `🎉 Workout Complete!\n\n${day.title}\nSets: ${completedSets} | Volume: ${totalVolume} kg\n\nKya is workout ko Strava par 'Weight Training' activity ke roop me post karna hai?`
+      );
+      if (askStrava) {
+        this.uploadWorkoutToStrava(workoutLog);
+      }
+    } else {
+      alert(`🎉 Workout Logged Successfully!\n\n${day.title}\nTotal Sets Completed: ${completedSets}\nTotal Volume: ${totalVolume} kg`);
+    }
+
     this.renderStats();
     this.renderHistory();
   }
@@ -1563,7 +1585,6 @@ class WorkoutApp {
     this.saveState();
     this.soundManager.playCompleteChime();
 
-    // Reset form
     document.getElementById("cardioDistance").value = "";
     document.getElementById("cardioHours").value = "";
     document.getElementById("cardioMinutes").value = "";
@@ -1707,17 +1728,17 @@ class WorkoutApp {
       <div class="glass-card p-4 rounded-xl border border-zinc-800">
         <div class="text-xs text-zinc-400 font-medium">Workouts Done</div>
         <div class="text-2xl font-bold text-white mt-1">${totalWorkouts}</div>
-        <div class="text-[11px] text-lime-400 mt-1">Consistency tracker</div>
+        <div class="text-[11px] text-lime-400 mt-1">Gym Sessions</div>
       </div>
       <div class="glass-card p-4 rounded-xl border border-zinc-800">
         <div class="text-xs text-zinc-400 font-medium">Total Running</div>
         <div class="text-2xl font-bold text-lime-400 mt-1">${totalRunKm.toFixed(1)} <span class="text-sm font-normal text-zinc-400">km</span></div>
-        <div class="text-[11px] text-zinc-400 mt-1">Goal: 5-10 km/session</div>
+        <div class="text-[11px] text-zinc-400 mt-1">From Strava GPS</div>
       </div>
       <div class="glass-card p-4 rounded-xl border border-zinc-800">
         <div class="text-xs text-zinc-400 font-medium">Total Cycling</div>
         <div class="text-2xl font-bold text-sky-400 mt-1">${totalCycleKm.toFixed(1)} <span class="text-sm font-normal text-zinc-400">km</span></div>
-        <div class="text-[11px] text-zinc-400 mt-1">Low joint impact cardio</div>
+        <div class="text-[11px] text-zinc-400 mt-1">From Strava GPS</div>
       </div>
       <div class="glass-card p-4 rounded-xl border border-zinc-800">
         <div class="text-xs text-zinc-400 font-medium">Volume Lifted</div>
@@ -1755,7 +1776,18 @@ class WorkoutApp {
                 </div>
                 <div class="text-right">
                   <div class="text-xs text-zinc-400">${dateStr}</div>
-                  <button class="text-xs text-red-400 hover:text-red-300 mt-1" onclick="window.app.deleteWorkoutLog(${idx})">Delete</button>
+                  <div class="flex items-center gap-2 mt-1 justify-end">
+                    ${log.stravaUrl ? `
+                      <a href="${log.stravaUrl}" target="_blank" class="text-xs text-[#FC4C02] hover:underline flex items-center gap-0.5 font-semibold">
+                        View on Strava ↗
+                      </a>
+                    ` : (this.stravaAuth?.accessToken ? `
+                      <button class="text-xs text-[#FC4C02] hover:underline font-semibold" onclick="window.app.uploadWorkoutToStrava(window.app.state.history[${idx}])">
+                        Post to Strava
+                      </button>
+                    ` : '')}
+                    <button class="text-xs text-red-400 hover:text-red-300" onclick="window.app.deleteWorkoutLog(${idx})">Delete</button>
+                  </div>
                 </div>
               </div>
               <div class="flex items-center gap-4 text-xs text-zinc-300 border-t border-zinc-800/80 pt-2 mt-1">
@@ -1772,7 +1804,7 @@ class WorkoutApp {
       if (this.state.cardioHistory.length === 0) {
         this.cardioHistoryContainer.innerHTML = `
           <div class="text-center py-8 text-zinc-400 text-sm">
-            No cardio sessions recorded yet. Log your 5-10km runs or sync from Strava above!
+            No cardio sessions recorded yet. Record runs in your Strava app and tap 'Sync Activities'!
           </div>
         `;
       } else {
@@ -1799,7 +1831,7 @@ class WorkoutApp {
                   <div class="flex items-center gap-2">
                     <span class="font-bold text-white text-sm capitalize">${cardio.type}</span>
                     <span class="text-xs text-lime-400 font-bold">${cardio.distance} km</span>
-                    ${isStrava ? '<span class="text-[9px] bg-[#FC4C02]/20 text-[#FC4C02] font-black px-1.5 py-0.2 rounded uppercase border border-[#FC4C02]/30">Strava</span>' : ''}
+                    ${isStrava ? '<span class="text-[9px] bg-[#FC4C02]/20 text-[#FC4C02] font-black px-1.5 py-0.2 rounded uppercase border border-[#FC4C02]/30">Strava GPS</span>' : ''}
                   </div>
                   <div class="text-[11px] text-zinc-400">
                     ${cardio.durationMins} mins • Pace: ${cardio.pace} • ~${cardio.calories} kcal
@@ -1869,7 +1901,6 @@ class WorkoutApp {
   }
 }
 
-// Global bootstrap
 document.addEventListener("DOMContentLoaded", () => {
   window.app = new WorkoutApp();
 });
