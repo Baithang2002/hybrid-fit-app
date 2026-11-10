@@ -1,0 +1,105 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --neon-lime: #a3e635;
+  --neon-cyan: #06b6d4;
+  --bg-dark: #09090b;
+  --card-dark: #121215;
+  --border-dark: #27272a;
+}
+
+body {
+  background-color: var(--bg-dark);
+  color: #f4f4f5;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #18181b;
+}
+::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
+}
+
+/* Glassmorphism card styles */
+.glass-panel {
+  background: rgba(18, 18, 21, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-card {
+  background: #131316;
+  border: 1px solid #27272a;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.glass-card:hover {
+  border-color: #3f3f46;
+}
+
+/* Glow effects */
+.glow-lime {
+  box-shadow: 0 0 20px -5px rgba(163, 230, 53, 0.35);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 20px -5px rgba(6, 182, 212, 0.35);
+}
+
+/* Set completed state animation */
+.set-row.completed {
+  background-color: rgba(163, 230, 53, 0.07);
+}
+
+.set-row.completed input {
+  color: #a3e635;
+  font-weight: 600;
+}
+
+/* Pulsing rest timer animation */
+@keyframes timerPulse {
+  0% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.03); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.9; }
+}
+
+.timer-running {
+  animation: timerPulse 2s infinite ease-in-out;
+}
+
+/* Custom checkbox toggle */
+.check-btn.checked {
+  background: #a3e635 !important;
+  color: #000 !important;
+  border-color: #a3e635 !important;
+}
+
+/* Tab indicator */
+.tab-active {
+  color: #a3e635 !important;
+  border-color: #a3e635 !important;
+}
+
+/* Hide spin buttons on number inputs */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}

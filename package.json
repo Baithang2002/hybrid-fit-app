@@ -1,0 +1,12 @@
+{
+  "name": "hybrid-workout-app",
+  "version": "1.0.0",
+  "description": "6-Day Hybrid Strength & Cardio Tracker Web App",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": ["workout", "cardio", "hybrid", "fitness", "ppl"],
+  "author": "",
+  "license": "MIT"
+}
